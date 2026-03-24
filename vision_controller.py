@@ -21,10 +21,21 @@ class HandController:
     def find_hands(self,img,draw = True):
         img_rgb = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
         self.results = self.hands.process(img_rgb)
+        h,w ,_= img.shape
 
         if self.results.multi_hand_landmarks and draw:  
             for hands_lms in self.results.multi_hand_landmarks:
                 self.mp_draw.draw_landmarks(img,hands_lms,self.mp_hands.HAND_CONNECTIONS)
+                finger_tips ={'Index':hands_lms.landmark[8],
+                      'Thumb': hands_lms.landmark[4],
+                      'Middle': hands_lms.landmark[12],
+                      'Ring': hands_lms.landmark[16]}
+                for name, landmark in finger_tips.items():
+                    cx,cy = int(landmark.x*w),int(landmark.y*h) # 0.5*640
+                    cv2.putText(img,name,(cx,cy-10),cv2.FONT_HERSHEY_SIMPLEX ,0.5,(255,255,255),1)#-10  for little bit top of the finger
+                    # draw a circle on finger
+                    cv2.circle(img,(cx,cy),10,(0,255,0),cv2.FILLED)
+
         return img
     def get_position(self,img,hand_no =0):
         lm_list = []
@@ -53,6 +64,10 @@ def main():
         clicked = False
         prev_y = 0
         scrolling = False
+        double_click = False
+        scroll_smooth = 0
+        scroll_factor = 2
+        scroll_closeness = 5
         while cap.isOpened():
             success, img = cap.read()
             if not success:break
@@ -80,18 +95,29 @@ def main():
 
                 # Check for Click (Distance beteen 4,8)
                 dist,coords = detector.get_distance(4,8,lm_list)
+                dist_double ,_ = detector.get_distance(4,16,lm_list)
                 x1,y1,x2,y2 = coords
-                cv2.line(img,(x1,y1),(x2,y2),(255,0,255),2)
-                if dist < 40 and not clicked :
+                
+                if dist_double < 30 and not double_click:
+                    pyautogui.doubleClick()
+                    pyautogui.sleep(0.3)
+                    double_click = True
+                    clicked = True  # prevent single click
+
+                elif dist_double >= 30:
+                    double_click = False
+                    
+
+                if dist < 40 and not clicked:
                     pyautogui.click()
                     pyautogui.sleep(0.2)
                     clicked = True
-                    cv2.line(img,(x1,y1),(x2,y2),(0,0,255),2)
+                    cv2.putText(img,"click", (50,100),
+                                    cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
+                    cv2.line(img,(x1,y1),(x2,y2),(0,0,255),5)
 
-                    
-            
                 elif dist >= 40:
-                    clicked = False
+                    clicked = False     
                 if len(lm_list)>12:
                     dist_right,_ = detector.get_distance(4,12,lm_list)
                     dist_scroll,_ = detector.get_distance(8,12,lm_list)
@@ -106,7 +132,8 @@ def main():
                         current_y = lm_list[8][2]
                         if scrolling:
                             delta_y = current_y - prev_y
-                            pyautogui.scroll(-int(delta_y*2))# *2 make scroll smoother/faster
+                            scroll_smooth = scroll_smooth +(delta_y-scroll_smooth)/scroll_closeness
+                            pyautogui.scroll(-int(delta_y*scroll_factor))# *2 make scroll smoother/faster
                         prev_y = current_y
                         scrolling = True
 
