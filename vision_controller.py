@@ -4,7 +4,7 @@ import pyautogui
 import math
 
 class HandController:
-    def __init__(self,max_hands = 2,detection_con =0.7,track_con = 0.5):
+    def __init__(self,max_hands = 1,detection_con =0.7,track_con = 0.5):
 
         # initialize mediapipe
         self.mp_hands = mp.solutions.hands
@@ -66,8 +66,8 @@ def main():
         scrolling = False
         double_click = False
         scroll_smooth = 0
-        scroll_factor = 2
-        scroll_closeness = 5
+        scroll_factor = 12
+        scroll_closeness = 3
         while cap.isOpened():
             success, img = cap.read()
             if not success:break
@@ -121,27 +121,30 @@ def main():
                 if len(lm_list)>12:
                     dist_right,_ = detector.get_distance(4,12,lm_list)
                     dist_scroll,_ = detector.get_distance(8,12,lm_list)
-                    if dist_right < 30:
-                        pyautogui.click(button='right')
-                        pyautogui.sleep(0.2)
-                        clicked =True
-                    elif dist_right >= 30:
-                        clicked = False
-                   
                     if dist_scroll < 30:
                         current_y = lm_list[8][2]
                         if scrolling:
                             delta_y = current_y - prev_y
                             scroll_smooth = scroll_smooth +(delta_y-scroll_smooth)/scroll_closeness
-                            pyautogui.scroll(-int(delta_y*scroll_factor))# *2 make scroll smoother/faster
+                            if abs(delta_y)>2:
+                                pyautogui.scroll(-int(scroll_smooth*scroll_factor))# *2 make scroll smoother/faster
                         prev_y = current_y
                         scrolling = True
 
                         cv2.putText(img,"SCROLL MODE", (50,100),
                                     cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
-                    else:
-                        scrolling = False
+                    
                         
+                    elif dist_right < 30:
+                        pyautogui.click(button='right')
+                        pyautogui.sleep(0.2)
+                        clicked =True
+                    
+                       
+                    else :
+                    
+                        scrolling = False
+                        clicked = False
 
 
                 cv2.imshow("AI Controller", img)
